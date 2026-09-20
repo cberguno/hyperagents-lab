@@ -4,6 +4,7 @@
 import { Route as rootRoute } from "./routes/__root";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as ApiMetaAgentRouteImport } from "./routes/api/meta-agent";
+import { Route as ApiRosterRouteImport } from "./routes/api/roster";
 
 const IndexRoute = IndexRouteImport.update({
   id: "/",
@@ -17,34 +18,44 @@ const ApiMetaAgentRoute = ApiMetaAgentRouteImport.update({
   getParentRoute: () => rootRoute,
 } as any);
 
+const ApiRosterRoute = ApiRosterRouteImport.update({
+  id: "/api/roster",
+  path: "/api/roster",
+  getParentRoute: () => rootRoute,
+} as any);
+
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
   "/api/meta-agent": typeof ApiMetaAgentRoute;
+  "/api/roster": typeof ApiRosterRoute;
 }
 
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
   "/api/meta-agent": typeof ApiMetaAgentRoute;
+  "/api/roster": typeof ApiRosterRoute;
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute;
   "/": typeof IndexRoute;
   "/api/meta-agent": typeof ApiMetaAgentRoute;
+  "/api/roster": typeof ApiRosterRoute;
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/api/meta-agent";
+  fullPaths: "/" | "/api/meta-agent" | "/api/roster";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/api/meta-agent";
-  id: "__root__" | "/" | "/api/meta-agent";
+  to: "/" | "/api/meta-agent" | "/api/roster";
+  id: "__root__" | "/" | "/api/meta-agent" | "/api/roster";
   fileRoutesById: FileRoutesById;
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   ApiMetaAgentRoute: typeof ApiMetaAgentRoute;
+  ApiRosterRoute: typeof ApiRosterRoute;
 }
 
 declare module "@tanstack/react-router" {
@@ -63,12 +74,20 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ApiMetaAgentRouteImport;
       parentRoute: typeof rootRoute;
     };
+    "/api/roster": {
+      id: "/api/roster";
+      path: "/api/roster";
+      fullPath: "/api/roster";
+      preLoaderRoute: typeof ApiRosterRouteImport;
+      parentRoute: typeof rootRoute;
+    };
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute,
   ApiMetaAgentRoute,
+  ApiRosterRoute,
 };
 
 export const routeTree = rootRoute._addFileChildren(rootRouteChildren)._addFileTypes<FileRouteTypes>();
