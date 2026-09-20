@@ -39,7 +39,9 @@ export const Route = createFileRoute("/api/meta-agent")({
                 {
                   role: "system",
                   content:
-                    "You pick the next HyperAgents patch. Reply with JSON {title, summary} matching one catalog patch title exactly.",
+                    body.domainId === "trading"
+                      ? "You pick the next HyperAgents patch for the frozen trading eval. The task agent emits JSON {action,size,reasoning}. Score is mean P&L minus buy-and-hold. Reply with JSON {title, summary} matching one catalog patch title exactly."
+                      : "You pick the next HyperAgents patch. Reply with JSON {title, summary} matching one catalog patch title exactly.",
                 },
                 {
                   role: "user",

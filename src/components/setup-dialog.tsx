@@ -47,7 +47,8 @@ export function SetupDialog() {
           </Dialog.Description>
           <div className="mt-4 flex flex-col gap-3 text-sm">
             <Row ok label="Stock trading harness" detail="30 US names, Yahoo daily bars 2016–2026. Close-to-close walk-forward from 2019, 5 bp costs, weekly rebalance. Each generation is a real backtest." />
-            <Row ok={false} label="Paper / BALROG / Genesis / IMO / polyglot" detail="Scored from the catalog of published patches with noise. Full Docker eval is not in this browser build." />
+            <Row ok label="Trading harness" detail="Frozen n=100 snapshots (10 names × 10 dates). Task agent JSON {action,size,reasoning}. Score is mean P&L minus buy-and-hold. No live API, no broker. Dual-scored with paper review each generation." />
+            <Row ok={false} label="Paper / BALROG / Genesis / IMO / polyglot" detail="Scored from the catalog of published patches with noise. Full Docker eval is not in this browser build. Paper review also reports the frozen trading transfer score without changing its catalog RNG." />
             <label className="mt-2 flex items-center justify-between gap-3 rounded-md bg-bg px-3 py-3">
               <span>
                 <span className="block font-medium">Grok meta-agent</span>
