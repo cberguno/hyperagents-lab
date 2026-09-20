@@ -1,10 +1,19 @@
-import { DOMAIN_BY_ID, isStockTrading } from "./domains";
+import { DOMAIN_BY_ID, isStockTrading, isTrading, isTransferPair } from "./domains";
 import {
   EMPTY_CONFIG,
   applyMutation,
   hasMutation,
   runBacktest,
 } from "./backtest";
+import {
+  EMPTY_TRADING_CONFIG,
+  applyTradingMutation,
+  hasTradingMutation,
+  paperExpectedFromTrading,
+  runTradingEval,
+  tradingConfigFromPaperPatch,
+  type TradingConfig,
+} from "./trading-eval";
 import type { ArchiveNode, LoopLog, LoopState, Patch } from "./types";
 
 const DEFAULT_SEED = 12648430;
@@ -45,14 +54,29 @@ export function openArchive(
   let metrics;
   let equity;
   let config;
+  let tradingConfig: TradingConfig | undefined;
+  let transferScore: number | undefined;
+  let transferDomain: string | undefined;
   if (isStockTrading(domainId)) {
     const bt = runBacktest(EMPTY_CONFIG);
     score = bt.sharpe;
     metrics = bt.metrics;
     equity = bt.equity;
     config = { ...EMPTY_CONFIG };
+  } else if (isTrading(domainId)) {
+    tradingConfig = { ...EMPTY_TRADING_CONFIG };
+    const ev = runTradingEval(tradingConfig);
+    score = ev.score;
+    const paper = DOMAIN_BY_ID["paper_review"]!;
+    transferScore = paper.baseline;
+    transferDomain = "paper_review";
   } else {
     score = clipScore(domain.baseline + (rng() - 0.5) * 0.04, domainId);
+    if (isTransferPair(domainId)) {
+      tradingConfig = { ...EMPTY_TRADING_CONFIG };
+      transferScore = runTradingEval(tradingConfig).score;
+      transferDomain = "trading";
+    }
   }
   const root: ArchiveNode = {
     id: 0,
@@ -63,14 +87,21 @@ export function openArchive(
     patchTitle: "Initial agent",
     patchSummary: isStockTrading(domainId)
       ? "Naive 6-month sign-momentum, weekly rebalance, dollar-neutral, no overlays."
-      : "Unmodified task agent evaluated on the domain harness.",
+      : isTrading(domainId)
+        ? "Heuristic task agent on frozen n=100 snapshots. Emits JSON {action,size,reasoning}."
+        : "Unmodified task agent evaluated on the domain harness.",
     diff: isStockTrading(domainId)
       ? "# baseline — domains/markets/task_agent.py\nweights = sign(mom_126) / n\nrebalance weekly"
-      : "# no patch — baseline task_agent.py",
+      : isTrading(domainId)
+        ? "# baseline — domains/trading/task_agent.py\nsignal = momentum(prices)\nreturn {action, size, reasoning}"
+        : "# no patch — baseline task_agent.py",
     children: 0,
     config,
     metrics,
     equity,
+    tradingConfig,
+    transferScore,
+    transferDomain,
   };
   const logs: LoopLog[] = [
     {
@@ -79,7 +110,9 @@ export function openArchive(
       kind: "system",
       text: isStockTrading(domainId)
         ? `Archive opened on ${domain.id}. Eval is a close-to-close backtest, 30 names, OOS from ${metrics?.start ?? "2019-01-02"}. Parent selection is score_child_prop.`
-        : `Archive opened on ${domain.id}. Parent selection is score_child_prop.`,
+        : isTrading(domainId)
+          ? `Archive opened on ${domain.id}. Eval is frozen n=100 snapshots. Score is mean P&L minus buy-and-hold. Parent selection is score_child_prop.`
+          : `Archive opened on ${domain.id}. Parent selection is score_child_prop.`,
     },
     {
       id: "log-1",
@@ -87,9 +120,18 @@ export function openArchive(
       kind: "eval",
       text: isStockTrading(domainId)
         ? `gen_0  sharpe=${score.toFixed(3)}  cagr=${((metrics?.cagr ?? 0) * 100).toFixed(1)}%  maxDD=${((metrics?.maxDd ?? 0) * 100).toFixed(1)}%  (baseline)`
-        : `gen_0  ${domain.scoreKey}=${score.toFixed(3)}  (baseline)`,
+        : `gen_0  ${domain.scoreKey}=${score.toFixed(isTrading(domainId) ? 6 : 3)}  (baseline)`,
     },
   ];
+  if (transferScore != null && transferDomain) {
+    const other = DOMAIN_BY_ID[transferDomain]!;
+    logs.push({
+      id: "log-1b",
+      gen: 0,
+      kind: "eval",
+      text: `transfer  ${other.id} ${other.scoreKey}=${transferScore.toFixed(transferDomain === "trading" ? 6 : 3)}`,
+    });
+  }
   return {
     domainId,
     maxGeneration,
@@ -122,7 +164,11 @@ function pickPatch(state: LoopState, parent: ArchiveNode): Patch {
     .map((p, i) => ({ p, i }))
     .filter(
       ({ p, i }) =>
-        !(state.usedPatches.includes(i) || (parent.config && p.mutation && hasMutation(parent.config, p.mutation))),
+        !(
+          state.usedPatches.includes(i) ||
+          (parent.config && p.mutation && hasMutation(parent.config, p.mutation)) ||
+          (parent.tradingConfig && p.mutation && hasTradingMutation(parent.tradingConfig, p.mutation))
+        ),
     );
   if (unused.length === 0) {
     const i = Math.floor(nextRand(state) * domain.patches.length);
@@ -186,6 +232,9 @@ export function stepGeneration(state: LoopState, forced?: Patch) {
   let metrics;
   let equity;
   let config;
+  let tradingConfig: TradingConfig | undefined;
+  let transferScore: number | undefined;
+  let transferDomain: string | undefined;
   if (isStockTrading(state.domainId)) {
     patch = bindMutation(patch, state.domainId);
     config = applyMutation(parent.config ?? EMPTY_CONFIG, patch.mutation);
@@ -193,8 +242,23 @@ export function stepGeneration(state: LoopState, forced?: Patch) {
     score = bt.sharpe;
     metrics = bt.metrics;
     equity = bt.equity;
+  } else if (isTrading(state.domainId)) {
+    if (!patch.mutation) {
+      const exact = domain.patches.find((p) => p.title.toLowerCase() === patch.title.toLowerCase());
+      if (exact?.mutation) patch = { ...patch, mutation: exact.mutation };
+    }
+    tradingConfig = applyTradingMutation(parent.tradingConfig ?? EMPTY_TRADING_CONFIG, patch.mutation);
+    score = runTradingEval(tradingConfig).score;
+    const paper = DOMAIN_BY_ID["paper_review"]!;
+    transferScore = paperExpectedFromTrading(tradingConfig, paper.baseline, paper.ceiling);
+    transferDomain = "paper_review";
   } else {
     score = catalogScore(state, parent, patch);
+    if (isTransferPair(state.domainId)) {
+      tradingConfig = tradingConfigFromPaperPatch(parent.tradingConfig ?? EMPTY_TRADING_CONFIG, patch.title);
+      transferScore = runTradingEval(tradingConfig).score;
+      transferDomain = "trading";
+    }
   }
   const bestSoFar = Math.max(score, ...state.archive.map((n) => n.score));
   const node: ArchiveNode = {
@@ -210,6 +274,9 @@ export function stepGeneration(state: LoopState, forced?: Patch) {
     config,
     metrics,
     equity,
+    tradingConfig,
+    transferScore,
+    transferDomain,
   };
   parent.children += 1;
   state.archive.push(node);
@@ -228,9 +295,17 @@ export function stepGeneration(state: LoopState, forced?: Patch) {
     );
   } else {
     const d = score - parent.score;
+    const digits = isTrading(state.domainId) ? 6 : 3;
     log(
       "eval",
-      `gen_${gen}  ${domain.scoreKey}=${score.toFixed(3)}  Δ=${d >= 0 ? "+" : ""}${d.toFixed(3)}`,
+      `gen_${gen}  ${domain.scoreKey}=${score.toFixed(digits)}  Δ=${d >= 0 ? "+" : ""}${d.toFixed(digits)}`,
+    );
+  }
+  if (transferScore != null && transferDomain) {
+    const other = DOMAIN_BY_ID[transferDomain]!;
+    log(
+      "eval",
+      `transfer  ${other.id} ${other.scoreKey}=${transferScore.toFixed(transferDomain === "trading" ? 6 : 3)}`,
     );
   }
   log("keep", kept ? `retained in archive  best=${bestSoFar.toFixed(3)}` : `retained (lineage)  best remains ${bestSoFar.toFixed(3)}`);
