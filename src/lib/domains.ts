@@ -16,3 +16,11 @@ export const DOMAIN_GROUPS = [
 export function isStockTrading(id: string) {
   return id === "stock_trading";
 }
+
+export function isTrading(id: string) {
+  return id === "trading";
+}
+
+export function isTransferPair(id: string) {
+  return id === "trading" || id === "paper_review";
+}

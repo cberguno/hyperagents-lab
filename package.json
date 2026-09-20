@@ -7,7 +7,8 @@
     "dev": "vite dev --host 0.0.0.0 --port 8080",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1 --port 8081",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test src/lib/trading-eval.test.ts src/lib/paper-identity.test.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
