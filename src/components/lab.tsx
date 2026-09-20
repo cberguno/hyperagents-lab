@@ -7,7 +7,7 @@ import { SetupDialog } from "@/components/setup-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/stat-card";
-import { DOMAIN_BY_ID, DOMAINS, isStockTrading } from "@/lib/domains";
+import { DOMAIN_BY_ID, DOMAINS, isStockTrading, isTrading, isTransferPair } from "@/lib/domains";
 import { champion, openArchive, stepGeneration } from "@/lib/loop";
 import { marketMeta } from "@/lib/backtest";
 import { useLabStore } from "@/lib/store";
@@ -18,7 +18,11 @@ function cloneState(s: LoopState): LoopState {
   return {
     ...s,
     usedPatches: [...s.usedPatches],
-    archive: s.archive.map((n) => ({ ...n })),
+    archive: s.archive.map((n) => ({
+      ...n,
+      config: n.config ? { ...n.config } : undefined,
+      tradingConfig: n.tradingConfig ? { ...n.tradingConfig } : undefined,
+    })),
     logs: s.logs.map((l) => ({ ...l })),
   };
 }
@@ -126,6 +130,9 @@ export function Lab() {
   const lift = best.score - (state.archive[0]?.score ?? 0);
   const metrics = selected.metrics;
   const trading = isStockTrading(domainId);
+  const fixture = isTrading(domainId);
+  const transfer = isTransferPair(domainId);
+  const other = selected.transferDomain ? DOMAIN_BY_ID[selected.transferDomain] : undefined;
 
   return (
     <div className="min-h-dvh bg-bg text-fg">
@@ -184,6 +191,7 @@ export function Lab() {
                   {market.names} names · {market.oos}–{market.end}
                 </Badge>
               ) : null}
+              {fixture ? <Badge>n=100 frozen</Badge> : null}
               <Badge variant={grokMode ? "accent" : "default"}>
                 {grokMode ? "Grok meta-agent" : "Catalog meta-agent"}
               </Badge>
@@ -209,8 +217,32 @@ export function Lab() {
                 hint={`Lift ${formatLift(domainId, lift)} Sharpe vs baseline`}
               />
             </div>
+          ) : fixture ? (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <StatCard label="Generation" value={`${state.currentGen} / ${state.maxGeneration}`} />
+              <StatCard
+                label="Best excess vs B&H"
+                value={formatScore(domainId, best.score)}
+                hint={best.patchTitle}
+                tone={best.score >= 0 ? "ok" : "warn"}
+              />
+              <StatCard
+                label={other ? `Transfer ${other.scoreKey}` : "Transfer paper"}
+                value={
+                  selected.transferScore != null && other
+                    ? formatScore(other.id, selected.transferScore)
+                    : "—"
+                }
+                hint="paper_review baseline / expected"
+              />
+              <StatCard
+                label="Lift from baseline"
+                value={formatLift(domainId, lift)}
+                tone={lift >= 0 ? "ok" : "warn"}
+              />
+            </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className={transfer ? "grid gap-3 sm:grid-cols-2 xl:grid-cols-4" : "grid gap-3 sm:grid-cols-3"}>
               <StatCard label="Generation" value={`${state.currentGen} / ${state.maxGeneration}`} />
               <StatCard label={`Best ${domain.scoreKey}`} value={formatPct(best.score)} hint={best.patchTitle} />
               <StatCard
@@ -218,6 +250,18 @@ export function Lab() {
                 value={`${lift >= 0 ? "+" : ""}${formatPct(lift)}`}
                 tone={lift >= 0 ? "ok" : "warn"}
               />
+              {transfer ? (
+                <StatCard
+                  label={other ? `Transfer ${other.scoreKey}` : "Transfer trading"}
+                  value={
+                    selected.transferScore != null
+                      ? formatScore(selected.transferDomain ?? "trading", selected.transferScore)
+                      : "—"
+                  }
+                  hint="frozen n=100 excess vs buy-and-hold"
+                  tone={selected.transferScore != null && selected.transferScore >= 0 ? "ok" : "warn"}
+                />
+              ) : null}
             </div>
           )}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -280,9 +324,12 @@ export function Lab() {
             <p className="font-medium">{selected.patchTitle}</p>
             <p className="mt-1 font-mono text-xs text-faint">
               gen_{selected.gen} · {selected.parentId == null ? "root" : `child of ${selected.parentId}`} ·{" "}
-              {domain.scoreKey} {selected.score.toFixed(3)}
+              {domain.scoreKey} {selected.score.toFixed(fixture ? 6 : 3)}
               {selected.metrics
                 ? ` · cagr ${(selected.metrics.cagr * 100).toFixed(1)}% · dd ${(selected.metrics.maxDd * 100).toFixed(1)}% · to ${selected.metrics.turnover.toFixed(1)}×`
+                : null}
+              {selected.transferScore != null && selected.transferDomain
+                ? ` · transfer ${selected.transferDomain} ${selected.transferScore.toFixed(selected.transferDomain === "trading" ? 6 : 3)}`
                 : null}
             </p>
             <p className="mt-3 text-sm leading-relaxed text-muted">{selected.patchSummary}</p>
@@ -307,10 +354,20 @@ export function Lab() {
               and 2% short borrow. 2016–2018 is warmup. 2019–2026 is the score. Some patches lose — that is the
               archive doing its job.
             </p>
+          ) : fixture ? (
+            <p className="text-sm leading-relaxed text-muted">
+              Each generation patches the task agent, then this lab scores JSON {"{action,size,reasoning}"} on a
+              frozen n=100 snapshot file. Score is mean P&L minus buy-and-hold. Negatives are kept. There is no
+              live Yahoo or broker call. Paper-review transfer is reported every generation without changing the
+              paper harness.
+            </p>
           ) : (
             <p className="text-sm leading-relaxed text-muted">
               Catalog domains score published patches with noise. They are not a substitute for the Docker
               HyperAgents harness.
+              {transfer
+                ? " Each generation also reports a frozen-n=100 trading transfer score. That eval does not touch this domain’s catalog RNG."
+                : ""}
             </p>
           )}
         </section>
@@ -360,15 +417,15 @@ function ArchiveList({
 }
 
 function ScoreBars({ archive, selectedId }: { archive: ArchiveNode[]; selectedId: number }) {
-  const max = Math.max(...archive.map((n) => n.score), 0.01);
+  const max = Math.max(...archive.map((n) => Math.abs(n.score)), 0.01);
   return (
     <div className="flex h-56 items-end gap-1">
       {archive.map((n) => (
         <div
           key={n.id}
           className={cn("flex-1 rounded-sm", n.id === selectedId ? "bg-accent" : "bg-border")}
-          style={{ height: `${Math.max(8, (n.score / max) * 100)}%` }}
-          title={`${n.patchTitle} ${n.score.toFixed(3)}`}
+          style={{ height: `${Math.max(8, (Math.abs(n.score) / max) * 100)}%` }}
+          title={`${n.patchTitle} ${n.score.toFixed(6)}`}
         />
       ))}
     </div>
