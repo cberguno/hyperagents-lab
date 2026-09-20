@@ -10,10 +10,14 @@ export function formatPct(n: number, digits = 1) {
 }
 
 export function formatScore(domainId: string, n: number) {
-  return domainId === "stock_trading" ? n.toFixed(2) : formatPct(n);
+  if (domainId === "stock_trading") return n.toFixed(2);
+  if (domainId === "trading") return formatPct(n, 2);
+  return formatPct(n);
 }
 
 export function formatLift(domainId: string, n: number) {
   const sign = n >= 0 ? "+" : "";
-  return domainId === "stock_trading" ? `${sign}${n.toFixed(2)}` : `${sign}${formatPct(n)}`;
+  if (domainId === "stock_trading") return `${sign}${n.toFixed(2)}`;
+  if (domainId === "trading") return `${sign}${formatPct(n, 2)}`;
+  return `${sign}${formatPct(n)}`;
 }

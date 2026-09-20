@@ -4,7 +4,12 @@ export type MutationId =
   | "regimeFilter"
   | "drawdownBreaker"
   | "crossSectional"
-  | "walkForward";
+  | "walkForward"
+  | "policyReversion"
+  | "headlineTilt"
+  | "tradeHurdle"
+  | "sizeScale"
+  | "policyBlend";
 
 export type Mutation = {
   id: MutationId;
@@ -74,6 +79,15 @@ export type ArchiveNode = {
   config?: BookConfig;
   metrics?: Metrics;
   equity?: EquityPoint[];
+  tradingConfig?: {
+    reversion: boolean;
+    headlineTilt: number;
+    tradeHurdle: number;
+    sizeScale: number;
+    policyBlend: number;
+  };
+  transferScore?: number;
+  transferDomain?: string;
 };
 
 export type LogKind = "system" | "eval" | "select" | "meta" | "keep";
