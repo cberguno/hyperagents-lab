@@ -1,8 +1,35 @@
 import meta from "@/data/markets-meta.json";
-import close0 from "@/data/markets-close-0.json";
-import close1 from "@/data/markets-close-1.json";
-import close2 from "@/data/markets-close-2.json";
 import spy from "@/data/markets-spy.json";
+import AAPL from "@/data/closes/AAPL.json";
+import MSFT from "@/data/closes/MSFT.json";
+import GOOGL from "@/data/closes/GOOGL.json";
+import AMZN from "@/data/closes/AMZN.json";
+import NVDA from "@/data/closes/NVDA.json";
+import META from "@/data/closes/META.json";
+import AVGO from "@/data/closes/AVGO.json";
+import AMD from "@/data/closes/AMD.json";
+import JPM from "@/data/closes/JPM.json";
+import BAC from "@/data/closes/BAC.json";
+import GS from "@/data/closes/GS.json";
+import JNJ from "@/data/closes/JNJ.json";
+import UNH from "@/data/closes/UNH.json";
+import PFE from "@/data/closes/PFE.json";
+import ABBV from "@/data/closes/ABBV.json";
+import LLY from "@/data/closes/LLY.json";
+import XOM from "@/data/closes/XOM.json";
+import CVX from "@/data/closes/CVX.json";
+import PG from "@/data/closes/PG.json";
+import KO from "@/data/closes/KO.json";
+import PEP from "@/data/closes/PEP.json";
+import COST from "@/data/closes/COST.json";
+import WMT from "@/data/closes/WMT.json";
+import HD from "@/data/closes/HD.json";
+import CAT from "@/data/closes/CAT.json";
+import BA from "@/data/closes/BA.json";
+import V from "@/data/closes/V.json";
+import MA from "@/data/closes/MA.json";
+import DIS from "@/data/closes/DIS.json";
+import NFLX from "@/data/closes/NFLX.json";
 import type { BacktestResult, BookConfig, EquityPoint, Mutation } from "./types";
 
 const DATA = {
@@ -10,7 +37,10 @@ const DATA = {
   tickers: meta.tickers as string[],
   sectors: meta.sectors as string[],
   adv: meta.adv as number[],
-  close: [...(close0 as number[][]), ...(close1 as number[][]), ...(close2 as number[][])],
+  close: [
+    AAPL, MSFT, GOOGL, AMZN, NVDA, META, AVGO, AMD, JPM, BAC, GS, JNJ, UNH, PFE,
+    ABBV, LLY, XOM, CVX, PG, KO, PEP, COST, WMT, HD, CAT, BA, V, MA, DIS, NFLX,
+  ] as number[][],
   spy: spy as number[],
 };
 const COST_BPS = 5e-4;
