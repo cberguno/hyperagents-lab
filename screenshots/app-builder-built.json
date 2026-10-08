@@ -1,0 +1,38 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "HyperAgents Lab",
+      "hasCanvas": false,
+      "bodyTextLen": 1742,
+      "bodyTextHash": "4c38c97a4a80f9dbae060a553b75381227019df5ef6e12d5649d10b33e216f06",
+      "bodyTextPrefix": "META FAIR HyperAgents Lab Setup Domain MARKETS Stock trading sto",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "HyperAgents Lab",
+      "hasCanvas": false,
+      "bodyTextLen": 1509,
+      "bodyTextHash": "86eb843b93759d7fa92b056f9c562b485a988020cc7f5a0b1e741cc6ab6241ab",
+      "bodyTextPrefix": "META FAIR HyperAgents Lab Setup DOMAIN Stock trading Paper revie",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": false,
+  "baselineReasons": []
+}
